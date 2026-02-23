@@ -5,6 +5,18 @@ import { createApple } from "../entities/Apple.js";
 import { GAME_CONFIG } from "../config/constants.js";
 
 const STORAGE_KEY = "mw1_profile_v1";
+const GHOST_ARCHETYPES = [
+  { kind: "ghost", name: "떠돌이 귀신", form: 0, health: 1, speedBonus: 0 },
+  { kind: "jiangshi", name: "강시", form: 1, health: 2, speedBonus: -6 },
+  { kind: "dracula", name: "드라큘라", form: 2, health: 3, speedBonus: 8 },
+  { kind: "wraith", name: "원혼", form: 3, health: 2, speedBonus: 12 },
+  { kind: "banshee", name: "밴시", form: 4, health: 4, speedBonus: 5 },
+  { kind: "phantom", name: "팬텀", form: 5, health: 3, speedBonus: 15 },
+  { kind: "reaper", name: "사신 유령", form: 6, health: 5, speedBonus: 7 },
+  { kind: "poltergeist", name: "폴터가이스트", form: 7, health: 4, speedBonus: 13 },
+  { kind: "specter", name: "스펙터", form: 8, health: 5, speedBonus: 10 },
+  { kind: "elder", name: "고대령", form: 9, health: 5, speedBonus: 14 },
+];
 
 function persistProgress(mission) {
   try {
@@ -53,12 +65,17 @@ function applyPlayerKnockback(playerPos, playerVel, playerRadius, enemyPos, enem
   return true;
 }
 
-function stageZombieHealth(stageIndex) {
-  return Math.min(5, 1 + Math.floor(stageIndex / 2));
+function getStagePrimaryGhost(stageIndex) {
+  return GHOST_ARCHETYPES[Math.min(stageIndex, GHOST_ARCHETYPES.length - 1)];
 }
 
-function stageZombieSpeed(stageIndex) {
-  return GAME_CONFIG.zombie.speed + stageIndex * GAME_CONFIG.zombie.speedPerStage;
+function pickGhostForSpawn(stageIndex) {
+  const unlocked = GHOST_ARCHETYPES.slice(0, Math.min(stageIndex + 1, GHOST_ARCHETYPES.length));
+  if (unlocked.length <= 1) return unlocked[0];
+
+  // Mostly spawn the current stage ghost, but mix prior ghosts for variety.
+  if (Math.random() < 0.65) return unlocked[unlocked.length - 1];
+  return unlocked[Math.floor(Math.random() * unlocked.length)];
 }
 
 function stageConcurrentLimit(stageIndex) {
@@ -72,6 +89,7 @@ function spawnZombieAtEdge(world, stageIndex) {
   const { width, height } = world.state.canvas;
   const side = Math.floor(Math.random() * 4);
   const padding = 26;
+  const ghost = pickGhostForSpawn(stageIndex);
 
   let x = 0;
   let y = 0;
@@ -93,9 +111,11 @@ function spawnZombieAtEdge(world, stageIndex) {
   world.spawn(
     createZombie(x, y, {
       ...GAME_CONFIG.zombie,
-      speed: stageZombieSpeed(stageIndex),
-      health: stageZombieHealth(stageIndex),
-      form: stageIndex,
+      speed: GAME_CONFIG.zombie.speed + stageIndex * GAME_CONFIG.zombie.speedPerStage + ghost.speedBonus,
+      health: ghost.health,
+      form: ghost.form,
+      kind: ghost.kind,
+      name: ghost.name,
     })
   );
 }
@@ -323,7 +343,8 @@ export class CollisionSystem extends System {
         spawnApple(world);
         mission.applesSpawned += 1;
       }
-      mission.noticeText = `STAGE ${mission.stageIndex + 1} 진행중 - 신규 유령 형태 출현`;
+      const stageGhost = getStagePrimaryGhost(mission.stageIndex);
+      mission.noticeText = `STAGE ${mission.stageIndex + 1} 진행중 - ${stageGhost.name} 출현`;
     }
 
     const stageTarget = mission.stages[mission.stageIndex];

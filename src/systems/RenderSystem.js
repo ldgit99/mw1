@@ -114,6 +114,19 @@ function drawGhost(ctx, x, y, size, options) {
     ctx.fillRect(x + 6, top - 12, 3, 5);
   }
 
+  if (options.variant === "dracula") {
+    ctx.fillStyle = "#f7f7f7";
+    ctx.fillRect(x - 4, top + 16, 2, 3);
+    ctx.fillRect(x + 2, top + 16, 2, 3);
+  } else if (options.variant === "jiangshi") {
+    ctx.fillStyle = "#203046";
+    ctx.fillRect(x - 10, top - 5, 20, 4);
+    ctx.fillRect(x - 2, top - 9, 4, 4);
+  } else if (options.variant === "reaper") {
+    ctx.fillStyle = "#1d1d1d";
+    ctx.fillRect(x - 10, top + 6, 20, 3);
+  }
+
   ctx.restore();
 }
 
@@ -248,9 +261,11 @@ export class RenderSystem extends System {
           drawShieldAura(ctx, pos.x, pos.y, collider.radius, mission.shieldTimeLeft);
         }
       } else if (entity.tag === "zombie") {
-        const form = entity.get("zombieType")?.form ?? mission.stageIndex;
+        const zType = entity.get("zombieType");
+        const form = zType?.form ?? mission.stageIndex;
+        const variant = zType?.kind ?? "ghost";
         const style = ZOMBIE_FORM_STYLES[form % ZOMBIE_FORM_STYLES.length];
-        drawGhost(ctx, pos.x, pos.y, size, { ...style, boss: false });
+        drawGhost(ctx, pos.x, pos.y, size, { ...style, boss: false, variant });
       } else if (entity.tag === "boss") {
         drawGhost(ctx, pos.x, pos.y, size, {
           body: "#e5f6ff",
