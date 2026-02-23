@@ -3,6 +3,25 @@ import { createBullet } from "../entities/Bullet.js";
 import { createMissile } from "../entities/Missile.js";
 import { GAME_CONFIG } from "../config/constants.js";
 
+const STORAGE_KEY = "mw1_profile_v1";
+
+function addKills(mission, count) {
+  mission.totalKillsAllTime = Math.max(0, (mission.totalKillsAllTime || 0) + count);
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    const next = {
+      bestStage: Math.max(Number(parsed.bestStage) || 1, mission.bestStageReached || 1),
+      totalKills: Math.max(Number(parsed.totalKills) || 0, mission.totalKillsAllTime || 0),
+      audioEnabled: parsed.audioEnabled !== false,
+      audioVolume: Math.max(0, Math.min(1, Number(parsed.audioVolume) || 0.18)),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // ignore persistence errors
+  }
+}
+
 function bombDamageAroundPlayer(world, playerPos) {
   const r = GAME_CONFIG.bomb.radius;
   const rSq = r * r;
@@ -19,6 +38,7 @@ function bombDamageAroundPlayer(world, playerPos) {
       world.remove(zombie.id);
       world.state.kills += 1;
       world.state.mission.stageKills += 1;
+      addKills(world.state.mission, 1);
     }
   }
 
@@ -35,6 +55,7 @@ function bombDamageAroundPlayer(world, playerPos) {
       world.state.mission.bossDefeated = true;
       world.state.kills += 10;
       world.state.mission.stageKills += 10;
+      addKills(world.state.mission, 10);
       world.state.mission.noticeText = `STAGE ${world.state.mission.stageIndex + 1} 대왕 유령 처치 완료 (SKILL +10)`;
     }
   }
@@ -42,7 +63,8 @@ function bombDamageAroundPlayer(world, playerPos) {
 
 export class ShootingSystem extends System {
   update(world, dt) {
-    if (world.state.gameOver || world.state.mission?.gameWon) return;
+    const mission = world.state.mission;
+    if (world.state.gameOver || mission?.gameWon || !mission?.started || mission?.paused) return;
 
     const player = world.getById(world.state.playerId);
     if (!player) return;
@@ -54,8 +76,6 @@ export class ShootingSystem extends System {
     const move = player.get("movement");
     vel.x = axis.x * move.speed;
     vel.y = axis.y * move.speed;
-
-    const mission = world.state.mission;
 
     if (mission.shieldActive) {
       mission.shieldTimeLeft = Math.max(0, mission.shieldTimeLeft - dt);

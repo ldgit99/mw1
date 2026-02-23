@@ -3,23 +3,40 @@
     this.ctx = null;
     this.master = null;
     this.lastHurtAt = -999;
+    this.enabled = true;
+    this.volume = 0.18;
   }
 
   ensureContext() {
+    if (!this.enabled) return false;
+
     if (!this.ctx) {
       this.ctx = new window.AudioContext();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.18;
+      this.master.gain.value = this.volume;
       this.master.connect(this.ctx.destination);
     }
 
     if (this.ctx.state === "suspended") {
       this.ctx.resume();
     }
+    return true;
+  }
+
+  setEnabled(enabled) {
+    this.enabled = Boolean(enabled);
+  }
+
+  setVolume(value) {
+    const v = Math.max(0, Math.min(1, Number(value)));
+    this.volume = v;
+    if (this.master) {
+      this.master.gain.value = v;
+    }
   }
 
   shoot() {
-    this.ensureContext();
+    if (!this.ensureContext()) return;
     const t0 = this.ctx.currentTime;
 
     const osc = this.ctx.createOscillator();
@@ -39,7 +56,7 @@
   }
 
   hit() {
-    this.ensureContext();
+    if (!this.ensureContext()) return;
     const t0 = this.ctx.currentTime;
 
     const osc = this.ctx.createOscillator();
@@ -59,7 +76,7 @@
   }
 
   hurt() {
-    this.ensureContext();
+    if (!this.ensureContext()) return;
     const t0 = this.ctx.currentTime;
 
     if (t0 - this.lastHurtAt < 0.12) return;
@@ -82,7 +99,7 @@
   }
 
   apple() {
-    this.ensureContext();
+    if (!this.ensureContext()) return;
     const t0 = this.ctx.currentTime;
 
     const osc = this.ctx.createOscillator();
@@ -102,7 +119,7 @@
   }
 
   bomb() {
-    this.ensureContext();
+    if (!this.ensureContext()) return;
     const t0 = this.ctx.currentTime;
 
     const osc = this.ctx.createOscillator();
@@ -122,7 +139,7 @@
   }
 
   missileLaunch() {
-    this.ensureContext();
+    if (!this.ensureContext()) return;
     const t0 = this.ctx.currentTime;
 
     const osc = this.ctx.createOscillator();
@@ -142,7 +159,7 @@
   }
 
   missileHit() {
-    this.ensureContext();
+    if (!this.ensureContext()) return;
     const t0 = this.ctx.currentTime;
 
     const osc = this.ctx.createOscillator();

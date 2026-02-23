@@ -10,6 +10,37 @@ import { MovementSystem } from "./systems/MovementSystem.js";
 import { CollisionSystem } from "./systems/CollisionSystem.js";
 import { RenderSystem } from "./systems/RenderSystem.js";
 
+const STORAGE_KEY = "mw1_profile_v1";
+
+function loadProfile() {
+  const fallback = {
+    bestStage: 1,
+    totalKills: 0,
+    audioEnabled: true,
+    audioVolume: 0.18,
+  };
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return {
+      bestStage: Math.max(1, Number(parsed.bestStage) || 1),
+      totalKills: Math.max(0, Number(parsed.totalKills) || 0),
+      audioEnabled: parsed.audioEnabled !== false,
+      audioVolume: Math.max(0, Math.min(1, Number(parsed.audioVolume) || 0.18)),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveProfile(profile) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+}
+
+const profile = loadProfile();
+
 const canvas = document.getElementById("game");
 canvas.width = GAME_CONFIG.width;
 canvas.height = GAME_CONFIG.height;
@@ -21,13 +52,15 @@ world.state.canvas = canvas;
 world.state.ctx = ctx;
 world.state.input = input;
 world.state.audio = new AudioManager();
+world.state.audio.setEnabled(profile.audioEnabled);
+world.state.audio.setVolume(profile.audioVolume);
 
 function clampStageIndex(stageIndex) {
   const max = GAME_CONFIG.mission.stages.length - 1;
   return Math.max(0, Math.min(max, stageIndex));
 }
 
-function resetToStage(stageIndex) {
+function resetToStage(stageIndex, autoStart = false) {
   const idx = clampStageIndex(stageIndex);
 
   world.entities.clear();
@@ -47,7 +80,9 @@ function resetToStage(stageIndex) {
     maxConcurrentZombies: GAME_CONFIG.mission.baseConcurrentZombies,
     stageClearDelaySec: GAME_CONFIG.mission.stageClearDelaySec,
     transitionTimer: 0,
-    noticeText: `STAGE ${idx + 1} 시작`,
+    noticeText: `STAGE ${idx + 1} 준비`,
+    started: autoStart,
+    paused: false,
     explosions: [],
     bombsLeft: GAME_CONFIG.bomb.usesPerStage,
     missilesLeft: GAME_CONFIG.missile.usesPerStage,
@@ -58,6 +93,8 @@ function resetToStage(stageIndex) {
     bossSpawned: false,
     bossDefeated: false,
     gameWon: false,
+    bestStageReached: Math.max(profile.bestStage, idx + 1),
+    totalKillsAllTime: profile.totalKills,
   };
 
   const stageHpBonus = idx * 10;
@@ -75,11 +112,56 @@ function resetToStage(stageIndex) {
   world.state.playerId = player.id;
 }
 
+function refreshProfileLabels() {
+  const mission = world.state.mission;
+  const best = mission ? mission.bestStageReached : profile.bestStage;
+  const kills = mission ? mission.totalKillsAllTime : profile.totalKills;
+  document.getElementById("start-best-stage").textContent = String(best);
+  document.getElementById("start-total-kills").textContent = String(kills);
+}
+
+function startCurrentStage() {
+  const mission = world.state.mission;
+  if (!mission) return;
+  mission.started = true;
+  mission.paused = false;
+  mission.noticeText = `STAGE ${mission.stageIndex + 1} 시작`;
+}
+
 function bindUiControls() {
   const retryBtn = document.getElementById("retry-btn");
   retryBtn.addEventListener("click", () => {
     const current = world.state.mission?.stageIndex ?? 0;
-    resetToStage(current);
+    resetToStage(current, true);
+    refreshProfileLabels();
+  });
+
+  const startBtn = document.getElementById("start-btn");
+  startBtn.addEventListener("click", () => {
+    startCurrentStage();
+  });
+
+  const pauseBtn = document.getElementById("pause-btn");
+  pauseBtn.addEventListener("click", () => {
+    const mission = world.state.mission;
+    if (!mission || !mission.started || world.state.gameOver || mission.gameWon) return;
+    mission.paused = !mission.paused;
+    mission.noticeText = mission.paused ? "일시정지" : `STAGE ${mission.stageIndex + 1} 재개`;
+  });
+
+  const resumeBtn = document.getElementById("resume-btn");
+  resumeBtn.addEventListener("click", () => {
+    const mission = world.state.mission;
+    if (!mission) return;
+    mission.paused = false;
+    mission.noticeText = `STAGE ${mission.stageIndex + 1} 재개`;
+  });
+
+  const restartBtn = document.getElementById("restart-btn");
+  restartBtn.addEventListener("click", () => {
+    const current = world.state.mission?.stageIndex ?? 0;
+    resetToStage(current, true);
+    refreshProfileLabels();
   });
 
   const stageButtonsWrap = document.getElementById("stage-buttons");
@@ -89,9 +171,29 @@ function bindUiControls() {
     btn.className = "ctrl-btn";
     btn.type = "button";
     btn.textContent = `스테이지 ${i + 1}`;
-    btn.addEventListener("click", () => resetToStage(i));
+    btn.addEventListener("click", () => {
+      resetToStage(i, false);
+      refreshProfileLabels();
+    });
     stageButtonsWrap.appendChild(btn);
   }
+
+  const soundToggle = document.getElementById("sound-toggle");
+  const volumeSlider = document.getElementById("volume-slider");
+  soundToggle.checked = profile.audioEnabled;
+  volumeSlider.value = String(Math.round(profile.audioVolume * 100));
+
+  soundToggle.addEventListener("change", () => {
+    profile.audioEnabled = soundToggle.checked;
+    world.state.audio.setEnabled(profile.audioEnabled);
+    saveProfile(profile);
+  });
+
+  volumeSlider.addEventListener("input", () => {
+    profile.audioVolume = Number(volumeSlider.value) / 100;
+    world.state.audio.setVolume(profile.audioVolume);
+    saveProfile(profile);
+  });
 }
 
 world
@@ -102,7 +204,8 @@ world
   .addSystem(new RenderSystem());
 
 bindUiControls();
-resetToStage(0);
+resetToStage(0, false);
+refreshProfileLabels();
 
 const game = new Game(world, GAME_CONFIG);
 game.start();

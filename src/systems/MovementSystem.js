@@ -2,6 +2,8 @@
 
 export class MovementSystem extends System {
   update(world, dt) {
+    if (!world.state.mission?.started || world.state.mission?.paused) return;
+
     const missiles = world.findByTag("missile");
     for (const missile of missiles) {
       const homing = missile.get("homing");

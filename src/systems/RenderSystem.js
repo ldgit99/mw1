@@ -328,5 +328,16 @@ export class RenderSystem extends System {
     document.getElementById("missiles").textContent = String(mission.missilesLeft ?? 0);
     document.getElementById("shield").textContent = shieldText;
     document.getElementById("status").textContent = mission.noticeText;
+
+    const showStart = !mission.started && !world.state.gameOver && !mission.gameWon;
+    const showPause = mission.started && mission.paused && !world.state.gameOver && !mission.gameWon;
+    const showGameOver = world.state.gameOver;
+
+    document.getElementById("start-menu").classList.toggle("show", showStart);
+    document.getElementById("pause-overlay").classList.toggle("show", showPause);
+    document.getElementById("gameover-overlay").classList.toggle("show", showGameOver);
+
+    document.getElementById("start-best-stage").textContent = String(mission.bestStageReached ?? 1);
+    document.getElementById("start-total-kills").textContent = String(mission.totalKillsAllTime ?? 0);
   }
 }

@@ -4,6 +4,29 @@ import { createBoss } from "../entities/Boss.js";
 import { createApple } from "../entities/Apple.js";
 import { GAME_CONFIG } from "../config/constants.js";
 
+const STORAGE_KEY = "mw1_profile_v1";
+
+function persistProgress(mission) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    const next = {
+      bestStage: Math.max(Number(parsed.bestStage) || 1, mission.bestStageReached || 1),
+      totalKills: Math.max(Number(parsed.totalKills) || 0, mission.totalKillsAllTime || 0),
+      audioEnabled: parsed.audioEnabled !== false,
+      audioVolume: Math.max(0, Math.min(1, Number(parsed.audioVolume) || 0.18)),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // ignore persistence errors
+  }
+}
+
+function addKills(mission, count) {
+  mission.totalKillsAllTime = Math.max(0, (mission.totalKillsAllTime || 0) + count);
+  persistProgress(mission);
+}
+
 function circlesOverlap(aPos, aR, bPos, bR) {
   const dx = aPos.x - bPos.x;
   const dy = aPos.y - bPos.y;
@@ -109,6 +132,12 @@ export class CollisionSystem extends System {
     if (typeof mission.applesSpawned !== "number") mission.applesSpawned = 0;
     if (typeof mission.appleSpawnTimer !== "number") mission.appleSpawnTimer = 0;
     if (typeof mission.missilesLeft !== "number") mission.missilesLeft = GAME_CONFIG.missile.usesPerStage;
+    if (typeof mission.shieldActive !== "boolean") mission.shieldActive = false;
+    if (typeof mission.shieldTimeLeft !== "number") mission.shieldTimeLeft = 0;
+    if (typeof mission.totalKillsAllTime !== "number") mission.totalKillsAllTime = 0;
+    if (typeof mission.bestStageReached !== "number") mission.bestStageReached = mission.stageIndex + 1;
+
+    if (!mission.started || mission.paused) return;
 
     const playerPos = player.get("position");
     const playerVel = player.get("velocity");
@@ -141,6 +170,7 @@ export class CollisionSystem extends System {
           world.remove(zombie.id);
           world.state.kills += 1;
           mission.stageKills += 1;
+          addKills(mission, 1);
         }
 
         hit = true;
@@ -164,6 +194,7 @@ export class CollisionSystem extends System {
           mission.bossDefeated = true;
           world.state.kills += 10;
           mission.stageKills += 10;
+          addKills(mission, 10);
           mission.noticeText = `STAGE ${mission.stageIndex + 1} 대왕 유령 처치 완료 (SKILL +10)`;
         }
         break;
@@ -190,6 +221,7 @@ export class CollisionSystem extends System {
           mission.bossDefeated = true;
           world.state.kills += 10;
           mission.stageKills += 10;
+          addKills(mission, 10);
           mission.noticeText = `STAGE ${mission.stageIndex + 1} 대왕 유령 처치 완료 (SKILL +10)`;
         }
         break;
@@ -262,6 +294,9 @@ export class CollisionSystem extends System {
       mission.noticeText = `STAGE ${mission.stageIndex + 1} 클리어! ${mission.transitionTimer.toFixed(1)}초 후 다음 스테이지`;
       if (mission.transitionTimer === 0) {
         mission.stageIndex += 1;
+        mission.bestStageReached = Math.max(mission.bestStageReached, mission.stageIndex + 1);
+        persistProgress(mission);
+
         mission.stageKills = 0;
         mission.stageSpawned = 0;
         mission.explosions = [];
@@ -311,6 +346,8 @@ export class CollisionSystem extends System {
       const stageNo = mission.stageIndex + 1;
       if (mission.stageIndex >= mission.stages.length - 1) {
         mission.gameWon = true;
+        mission.bestStageReached = Math.max(mission.bestStageReached, mission.stages.length);
+        persistProgress(mission);
         mission.noticeText = "모든 스테이지 클리어 완료";
         return;
       }

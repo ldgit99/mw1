@@ -6,10 +6,6 @@
     <title>Block Survivor Mission</title>
     <style>
       :root {
-        --dirt: #6f4e37;
-        --grass: #4b8f29;
-        --stone: #8892a0;
-        --wood: #3f2f22;
         --ui: #d6c7a2;
         --ui-dark: #2a2119;
         --hp: #ff5a5f;
@@ -32,6 +28,7 @@
       }
 
       .game-shell {
+        position: relative;
         width: min(99vw, 1340px);
         background: #2b2218;
         border: 6px solid #181109;
@@ -57,25 +54,11 @@
         float: right;
       }
 
-      #hp {
-        color: var(--hp);
-      }
-
-      #boss-hp {
-        color: #156cc3;
-      }
-
-      #bombs {
-        color: #8a2be2;
-      }
-
-      #missiles {
-        color: #ff7f32;
-      }
-
-      #shield {
-        color: #25a5d1;
-      }
+      #hp { color: var(--hp); }
+      #boss-hp { color: #156cc3; }
+      #bombs { color: #8a2be2; }
+      #missiles { color: #ff7f32; }
+      #shield { color: #25a5d1; }
 
       #status {
         margin-bottom: 8px;
@@ -90,6 +73,7 @@
         flex-wrap: wrap;
         gap: 6px;
         margin-bottom: 8px;
+        align-items: center;
       }
 
       .ctrl-btn {
@@ -102,12 +86,18 @@
         cursor: pointer;
       }
 
-      .ctrl-btn:hover {
-        background: #e5d2a6;
-      }
+      .ctrl-btn:hover { background: #e5d2a6; }
 
-      #stage-buttons {
-        display: contents;
+      #stage-buttons { display: contents; }
+
+      .audio-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        background: #e8ddb9;
+        border: 2px solid #56402a;
+        font-size: 12px;
       }
 
       #game {
@@ -127,8 +117,39 @@
         letter-spacing: 0.2px;
       }
 
-      .ok {
-        color: var(--ok);
+      .ok { color: var(--ok); }
+
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: none;
+        place-items: center;
+        background: rgba(10, 8, 6, 0.55);
+        z-index: 20;
+      }
+
+      .overlay.show { display: grid; }
+
+      .panel {
+        width: min(92%, 560px);
+        padding: 16px;
+        border: 4px solid #4e3826;
+        background: #f0e4c8;
+        color: #241b13;
+      }
+
+      .panel h2 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+
+      .panel p {
+        margin: 4px 0;
+        font-size: 14px;
+      }
+
+      .panel .ctrl-btn {
+        margin-top: 10px;
       }
     </style>
   </head>
@@ -144,13 +165,43 @@
         <div class="stat">SHIELD <strong id="shield">OFF</strong></div>
         <div class="stat">TOTAL KILLS <strong id="kills">0</strong></div>
       </div>
-      <div id="status">STAGE 1 시작</div>
+      <div id="status">STAGE 1 준비</div>
       <div id="controls">
         <button class="ctrl-btn" id="retry-btn" type="button">다시하기</button>
+        <button class="ctrl-btn" id="pause-btn" type="button">일시정지</button>
+        <div class="audio-box">
+          <label><input type="checkbox" id="sound-toggle" checked /> 사운드</label>
+          <label>볼륨 <input id="volume-slider" type="range" min="0" max="100" value="18" /></label>
+        </div>
         <div id="stage-buttons"></div>
       </div>
       <canvas id="game" width="1280" height="720"></canvas>
       <div id="help">WASD 또는 방향키 이동 / 마우스 조준 / 좌클릭 사격 / 스페이스 자동조준 사격 / 1번 폭탄 / 2번 미사일 / 3번 방어막(10초) <span class="ok">MISSION: 10 스테이지 클리어 + 대왕 유령 처치</span></div>
+
+      <div id="start-menu" class="overlay show">
+        <div class="panel">
+          <h2>게임 시작</h2>
+          <p>최고 스테이지: <strong id="start-best-stage">1</strong></p>
+          <p>누적 처치 수: <strong id="start-total-kills">0</strong></p>
+          <button class="ctrl-btn" id="start-btn" type="button">START</button>
+        </div>
+      </div>
+
+      <div id="pause-overlay" class="overlay">
+        <div class="panel">
+          <h2>일시정지</h2>
+          <p>게임이 멈춘 상태입니다.</p>
+          <button class="ctrl-btn" id="resume-btn" type="button">이어하기</button>
+        </div>
+      </div>
+
+      <div id="gameover-overlay" class="overlay">
+        <div class="panel">
+          <h2>GAME OVER</h2>
+          <p>현재 스테이지를 다시 시도할 수 있습니다.</p>
+          <button class="ctrl-btn" id="restart-btn" type="button">현재 스테이지 재시작</button>
+        </div>
+      </div>
     </main>
 
     <script type="module" src="./src/main.js"></script>

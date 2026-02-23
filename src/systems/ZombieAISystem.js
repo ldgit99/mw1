@@ -2,7 +2,14 @@
 
 export class ZombieAISystem extends System {
   update(world, _dt) {
-    if (world.state.gameOver || world.state.mission?.gameWon) return;
+    if (
+      world.state.gameOver ||
+      world.state.mission?.gameWon ||
+      !world.state.mission?.started ||
+      world.state.mission?.paused
+    ) {
+      return;
+    }
 
     const player = world.getById(world.state.playerId);
     if (!player) return;
